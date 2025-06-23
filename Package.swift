@@ -29,15 +29,23 @@ let package = Package(
         .target(
             name: "CPortAudio",
             dependencies: [],
-            sources: ["stub_implementation.c"],
             cSettings: [
+                .headerSearchPath("include"),
+                .headerSearchPath("portaudio/include"),
                 .headerSearchPath("portaudio/src/common"),
                 .headerSearchPath("portaudio/src/os/unix"),
-                .headerSearchPath("portaudio/include"),
-                .headerSearchPath("include"),
+                .headerSearchPath("portaudio/src/hostapi/coreaudio"),
+                .define("PA_USE_COREAUDIO", to: "1"),
                 .define("SIZEOF_SHORT", to: "2"),
                 .define("SIZEOF_INT", to: "4"),
-                .define("SIZEOF_LONG", to: "8")
+                .define("SIZEOF_LONG", to: "8"),
+                .define("_DARWIN_C_SOURCE")
+            ],
+            linkerSettings: [
+                .linkedFramework("CoreAudio"),
+                .linkedFramework("AudioToolbox"),
+                .linkedFramework("AudioUnit"),
+                .linkedFramework("CoreServices")
             ]
         ),
         .target(

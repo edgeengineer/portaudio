@@ -133,20 +133,14 @@ func demonstrateMP3Playback() {
     do {
         let player = MP3Player()
         
-        // Get the path to sample.mp3 in the same directory as this file
-        let currentFilePath = URL(fileURLWithPath: #file)
-        let examplesDirectory = currentFilePath.deletingLastPathComponent()
-        let mp3Path = examplesDirectory.appendingPathComponent("sample.mp3").path
-        let mp3URL = URL(fileURLWithPath: mp3Path)
-        
-        // Check if file exists
-        if FileManager.default.fileExists(atPath: mp3Path) {
-            print("Playing sample.mp3 from: \(mp3Path)")
-            try player.play(mp3URL: mp3URL)
-        } else {
-            print("sample.mp3 not found at: \(mp3Path)")
-            print("Please ensure sample.mp3 is in the Examples directory")
+        // Get the sample.mp3 from the bundle resources
+        guard let mp3URL = Bundle.module.url(forResource: "sample", withExtension: "mp3") else {
+            print("sample.mp3 not found in bundle resources")
+            return
         }
+        
+        print("Playing sample.mp3 from bundle...")
+        try player.play(mp3URL: mp3URL)
         
     } catch {
         print("Error playing MP3: \(error)")
