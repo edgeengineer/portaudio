@@ -13,14 +13,18 @@
 #include "../../portaudio/src/common/pa_stream.c"
 #include "../../portaudio/src/common/pa_trace.c"
 
-// macOS/CoreAudio specific
+// Platform-specific implementations
 #ifdef __APPLE__
+// macOS/CoreAudio specific
 #include "../../portaudio/src/hostapi/coreaudio/pa_mac_core.c"
 #include "../../portaudio/src/hostapi/coreaudio/pa_mac_core_blocking.c"
 #include "../../portaudio/src/hostapi/coreaudio/pa_mac_core_utilities.c"
+#elif __linux__
+// Linux/ALSA specific
+#include "../../portaudio/src/hostapi/alsa/pa_linux_alsa.c"
 #endif
 
-// Unix utilities
+// Unix utilities (shared between macOS and Linux)
 #include "../../portaudio/src/os/unix/pa_unix_hostapis.c"
 #include "../../portaudio/src/os/unix/pa_unix_util.c"
 #include "../../portaudio/src/os/unix/pa_pthread_util.c"

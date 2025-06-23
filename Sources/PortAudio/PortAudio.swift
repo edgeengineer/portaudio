@@ -1,6 +1,10 @@
 import CPortAudio
 import Foundation
 
+/// Errors that can occur when using PortAudio.
+///
+/// These errors map directly to PortAudio's error codes and provide
+/// Swift-friendly error handling for all PortAudio operations.
 public enum PortAudioError: Error, LocalizedError, Equatable {
     case notInitialized
     case unanticipatedHostError
@@ -68,6 +72,9 @@ public enum PortAudioError: Error, LocalizedError, Equatable {
         }
     }
     
+    /// Converts a PortAudio error code to a Swift error.
+    /// - Parameter paError: The PortAudio error code
+    /// - Returns: The corresponding Swift error, or nil if no error
     static func from(_ paError: PaError) -> PortAudioError? {
         switch paError {
         case paNoError.rawValue: return nil
@@ -105,7 +112,33 @@ public enum PortAudioError: Error, LocalizedError, Equatable {
     }
 }
 
+/// The main interface to the PortAudio library.
+///
+/// PortAudio provides cross-platform audio I/O functionality. Before using any
+/// PortAudio functionality, you must call ``initialize()``. When you're done,
+/// call ``terminate()`` to clean up resources.
+///
+/// ## Example
+/// ```swift
+/// do {
+///     try PortAudio.initialize()
+///     defer { try? PortAudio.terminate() }
+///     
+///     // Use PortAudio functionality here
+///     let deviceCount = PortAudio.deviceCount
+///     print("Found \(deviceCount) audio devices")
+/// } catch {
+///     print("Failed to initialize PortAudio: \(error)")
+/// }
+/// ```
 public struct PortAudio {
+    /// Initializes the PortAudio library.
+    ///
+    /// This function must be called before using any other PortAudio functionality.
+    /// It initializes internal data structures and performs platform-specific setup.
+    ///
+    /// - Throws: ``PortAudioError`` if initialization fails
+    /// - Important: Always pair with ``terminate()`` when done
     public static func initialize() throws {
         let error = Pa_Initialize()
         if let paError = PortAudioError.from(error) {
@@ -113,6 +146,13 @@ public struct PortAudio {
         }
     }
     
+    /// Terminates the PortAudio library.
+    ///
+    /// This function deallocates all resources allocated by PortAudio.
+    /// It must be called when you're done using PortAudio.
+    ///
+    /// - Throws: ``PortAudioError`` if termination fails
+    /// - Important: Don't use any PortAudio functionality after calling this
     public static func terminate() throws {
         let error = Pa_Terminate()
         if let paError = PortAudioError.from(error) {
@@ -120,23 +160,40 @@ public struct PortAudio {
         }
     }
     
+    /// The numeric version of PortAudio.
+    ///
+    /// The version is encoded as a single integer with the format: `MMmmpp`
+    /// where MM is major version, mm is minor version, and pp is patch level.
     public static var version: Int {
         return Int(Pa_GetVersion())
     }
     
+    /// The human-readable version string of PortAudio.
+    ///
+    /// Returns a string like "PortAudio V19.7.0-devel, revision 147dd722548358763a8b649b3e4b41dfffbcfbb6"
     public static var versionText: String {
         return String(cString: Pa_GetVersionText())
     }
     
+    /// The number of available audio devices.
+    ///
+    /// This includes both input and output devices. Use ``getDeviceInfo(at:)``
+    /// to get information about each device.
     public static var deviceCount: Int {
         return Int(Pa_GetDeviceCount())
     }
     
+    /// The index of the default input device, if available.
+    ///
+    /// - Returns: The device index, or nil if no default input device exists
     public static var defaultInputDevice: Int? {
         let device = Pa_GetDefaultInputDevice()
         return device == paNoDevice ? nil : Int(device)
     }
     
+    /// The index of the default output device, if available.
+    ///
+    /// - Returns: The device index, or nil if no default output device exists
     public static var defaultOutputDevice: Int? {
         let device = Pa_GetDefaultOutputDevice()
         return device == paNoDevice ? nil : Int(device)
