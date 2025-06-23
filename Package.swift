@@ -1,4 +1,4 @@
-// swift-tools-version: 6.1
+// swift-tools-version: 6.0
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -36,6 +36,7 @@ let cSettings: [CSetting] = [
     .define("SIZEOF_SHORT", to: "2"),
     .define("SIZEOF_INT", to: "4"),
     .define("SIZEOF_LONG", to: "8"),
+    .define("PA_LITTLE_ENDIAN", to: "1"),
     .define("_GNU_SOURCE")
 ]
 let linkerSettings: [LinkerSetting] = [

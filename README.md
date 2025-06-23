@@ -1,6 +1,6 @@
 # PortAudio Swift
 
-[![Swift](https://img.shields.io/badge/Swift-6.1+-orange.svg?style=flat&logo=swift)](https://swift.org)
+[![Swift](https://img.shields.io/badge/Swift-6.0+-orange.svg?style=flat&logo=swift)](https://swift.org)
 [![macOS](https://img.shields.io/badge/macOS-10.15+-blue.svg?style=flat&logo=apple)](https://www.apple.com/macos/)
 [![iOS](https://img.shields.io/badge/iOS-13.0+-blue.svg?style=flat&logo=ios)](https://www.apple.com/ios/)
 [![tvOS](https://img.shields.io/badge/tvOS-13.0+-blue.svg?style=flat&logo=appletv)](https://www.apple.com/tv/)

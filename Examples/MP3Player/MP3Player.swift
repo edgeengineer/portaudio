@@ -1,3 +1,4 @@
+#if os(macOS) || os(iOS) || os(tvOS)
 import PortAudio
 import AVFoundation
 import Foundation
@@ -146,3 +147,13 @@ func demonstrateMP3Playback() {
         print("Error playing MP3: \(error)")
     }
 }
+
+#else
+// Stub implementation for non-Apple platforms
+import Foundation
+
+func demonstrateMP3Playback() {
+    print("MP3 playback is only available on Apple platforms (macOS, iOS, tvOS)")
+    print("AVFoundation is required for MP3 decoding")
+}
+#endif

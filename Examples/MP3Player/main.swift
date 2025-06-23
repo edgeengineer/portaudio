@@ -1,5 +1,6 @@
 import Foundation
 
+#if os(macOS) || os(iOS) || os(tvOS)
 // Command-line entry point
 if CommandLine.arguments.count > 1 {
     // If a file path is provided as argument
@@ -20,3 +21,7 @@ if CommandLine.arguments.count > 1 {
     // Run the demonstration
     demonstrateMP3Playback()
 }
+#else
+// For non-Apple platforms
+demonstrateMP3Playback()
+#endif
