@@ -29,6 +29,14 @@ public enum SampleFormat {
         case .uint8: return paUInt8
         }
     }
+    
+    /// Gets the size of a single sample in bytes.
+    ///
+    /// Useful for calculating buffer sizes.
+    /// - Returns: The size in bytes of one sample in this format
+    public var sampleSize: Int {
+        return Int(Pa_GetSampleSize(paSampleFormat))
+    }
 }
 
 /// Parameters for configuring an audio stream.
@@ -144,6 +152,32 @@ public struct StreamCallbackFlags: OptionSet, Sendable {
     public static let primingOutput = StreamCallbackFlags(rawValue: 16)
 }
 
+/// Stream open flags that modify stream behavior.
+///
+/// These flags can be combined to control various aspects of stream operation.
+public struct StreamFlags: OptionSet, Sendable {
+    public let rawValue: UInt
+    
+    public init(rawValue: UInt) {
+        self.rawValue = rawValue
+    }
+    
+    /// No flags (default behavior).
+    public static let noFlag = StreamFlags([])
+    
+    /// Disable default clipping of out-of-range samples.
+    public static let clipOff = StreamFlags(rawValue: 1)
+    
+    /// Disable default dithering of output samples.
+    public static let ditherOff = StreamFlags(rawValue: 2)
+    
+    /// Never drop input samples; request that input overflow conditions be ignored.
+    public static let neverDropInput = StreamFlags(rawValue: 4)
+    
+    /// Call the stream callback to fill initial output buffers.
+    public static let primeOutputBuffersUsingStreamCallback = StreamFlags(rawValue: 8)
+}
+
 /// Information about an open audio stream.
 ///
 /// Contains the actual stream parameters after opening, which may differ
@@ -192,6 +226,34 @@ public struct StreamInfo {
 ///   - Locks that might block
 ///   - Objective-C/Swift runtime operations
 public typealias StreamCallback = (UnsafeRawPointer?, UnsafeMutableRawPointer?, UInt, StreamCallbackTimeInfo, StreamCallbackFlags) -> StreamCallbackResult
+
+// C callback function that bridges to Swift
+private func paStreamCallback(
+    input: UnsafeRawPointer?,
+    output: UnsafeMutableRawPointer?,
+    frameCount: UInt,
+    timeInfo: UnsafePointer<PaStreamCallbackTimeInfo>?,
+    statusFlags: PaStreamCallbackFlags,
+    userData: UnsafeMutableRawPointer?
+) -> Int32 {
+    guard let wrapper = userData?.assumingMemoryBound(to: CallbackWrapper.self).pointee else {
+        return StreamCallbackResult.abort.rawValue
+    }
+    
+    let swiftTimeInfo = StreamCallbackTimeInfo(from: timeInfo!.pointee)
+    let swiftFlags = StreamCallbackFlags(rawValue: UInt(statusFlags))
+    
+    let result = wrapper.callback(input, output, frameCount, swiftTimeInfo, swiftFlags)
+    return result.rawValue
+}
+
+// C callback function for stream finished notifications
+private func paStreamFinishedCallback(userData: UnsafeMutableRawPointer?) {
+    guard let userData = userData else { return }
+    
+    let wrapper = Unmanaged<CallbackWrapper>.fromOpaque(userData).takeUnretainedValue()
+    wrapper.finishedCallback?()
+}
 
 private class CallbackWrapper {
     let callback: StreamCallback
@@ -273,14 +335,14 @@ public class AudioStream {
     ///   - outputParameters: Parameters for audio output, or nil for input-only
     ///   - sampleRate: Sample rate in Hz (e.g., 44100, 48000)
     ///   - framesPerBuffer: Preferred buffer size, or 0 for automatic
-    ///   - flags: Additional stream flags (usually 0)
+    ///   - flags: Additional stream flags
     /// - Throws: ``PortAudioError`` if the stream cannot be opened
     /// - Important: At least one of inputParameters or outputParameters must be provided
     public func open(inputParameters: StreamParameters? = nil,
                     outputParameters: StreamParameters? = nil,
                     sampleRate: Double,
                     framesPerBuffer: UInt = 0,
-                    flags: PaStreamFlags = 0) throws {
+                    flags: StreamFlags = []) throws {
         
         var inputParams: PaStreamParameters?
         var outputParams: PaStreamParameters?
@@ -294,25 +356,102 @@ public class AudioStream {
         }
         
         let error: PaError
-        if self.callbackWrapper != nil {
-            throw PortAudioError.internalError
-        } else {
+        let paFlags = PaStreamFlags(flags.rawValue)
+        
+        if let wrapper = callbackWrapper {
+            // Callback-based stream
+            let callbackPtr = UnsafeMutableRawPointer(Unmanaged.passUnretained(wrapper).toOpaque())
+            
             if var inputP = inputParams {
                 if var outputP = outputParams {
-                    error = Pa_OpenStream(&stream, &inputP, &outputP, sampleRate, UInt(framesPerBuffer), flags, nil, nil)
+                    error = Pa_OpenStream(&stream, &inputP, &outputP, sampleRate, UInt(framesPerBuffer), paFlags, paStreamCallback, callbackPtr)
                 } else {
-                    error = Pa_OpenStream(&stream, &inputP, nil, sampleRate, UInt(framesPerBuffer), flags, nil, nil)
+                    error = Pa_OpenStream(&stream, &inputP, nil, sampleRate, UInt(framesPerBuffer), paFlags, paStreamCallback, callbackPtr)
                 }
             } else if var outputP = outputParams {
-                error = Pa_OpenStream(&stream, nil, &outputP, sampleRate, UInt(framesPerBuffer), flags, nil, nil)
+                error = Pa_OpenStream(&stream, nil, &outputP, sampleRate, UInt(framesPerBuffer), paFlags, paStreamCallback, callbackPtr)
             } else {
-                error = Pa_OpenStream(&stream, nil, nil, sampleRate, UInt(framesPerBuffer), flags, nil, nil)
+                throw PortAudioError.invalidDevice
+            }
+        } else {
+            // Blocking stream
+            if var inputP = inputParams {
+                if var outputP = outputParams {
+                    error = Pa_OpenStream(&stream, &inputP, &outputP, sampleRate, UInt(framesPerBuffer), paFlags, nil, nil)
+                } else {
+                    error = Pa_OpenStream(&stream, &inputP, nil, sampleRate, UInt(framesPerBuffer), paFlags, nil, nil)
+                }
+            } else if var outputP = outputParams {
+                error = Pa_OpenStream(&stream, nil, &outputP, sampleRate, UInt(framesPerBuffer), paFlags, nil, nil)
+            } else {
+                throw PortAudioError.invalidDevice
             }
         }
         
         if let paError = PortAudioError.from(error) {
             throw paError
         }
+    }
+    
+    /// Opens a stream with default input and/or output devices.
+    ///
+    /// This is a convenience method for quickly setting up a stream with
+    /// default devices. It's equivalent to manually creating StreamParameters
+    /// with the default device indices.
+    ///
+    /// - Parameters:
+    ///   - inputChannels: Number of input channels (0 for output-only)
+    ///   - outputChannels: Number of output channels (0 for input-only)
+    ///   - sampleFormat: The sample format to use
+    ///   - sampleRate: Sample rate in Hz (e.g., 44100, 48000)
+    ///   - framesPerBuffer: Preferred buffer size, or 0 for automatic
+    ///   - flags: Additional stream flags
+    /// - Throws: ``PortAudioError`` if the stream cannot be opened
+    /// - Important: At least one of inputChannels or outputChannels must be non-zero
+    public func openDefaultStream(inputChannels: Int = 0,
+                                 outputChannels: Int = 0,
+                                 sampleFormat: SampleFormat = .float32,
+                                 sampleRate: Double,
+                                 framesPerBuffer: UInt = 0,
+                                 flags: StreamFlags = []) throws {
+        guard inputChannels > 0 || outputChannels > 0 else {
+            throw PortAudioError.invalidChannelCount
+        }
+        
+        var inputParams: StreamParameters?
+        var outputParams: StreamParameters?
+        
+        if inputChannels > 0 {
+            guard let defaultInput = PortAudio.defaultInputDevice else {
+                throw PortAudioError.invalidDevice
+            }
+            inputParams = StreamParameters(
+                device: defaultInput,
+                channelCount: inputChannels,
+                sampleFormat: sampleFormat,
+                suggestedLatency: 0.05  // Default latency
+            )
+        }
+        
+        if outputChannels > 0 {
+            guard let defaultOutput = PortAudio.defaultOutputDevice else {
+                throw PortAudioError.invalidDevice
+            }
+            outputParams = StreamParameters(
+                device: defaultOutput,
+                channelCount: outputChannels,
+                sampleFormat: sampleFormat,
+                suggestedLatency: 0.05  // Default latency
+            )
+        }
+        
+        try open(
+            inputParameters: inputParams,
+            outputParameters: outputParams,
+            sampleRate: sampleRate,
+            framesPerBuffer: framesPerBuffer,
+            flags: flags
+        )
     }
     
     /// Starts audio processing.
@@ -359,6 +498,35 @@ public class AudioStream {
         
         let error = Pa_CloseStream(stream)
         self.stream = nil
+        if let paError = PortAudioError.from(error) {
+            throw paError
+        }
+    }
+    
+    /// Sets a callback to be called when the stream finishes.
+    ///
+    /// The callback will be invoked when the stream stops naturally
+    /// (e.g., when a callback returns `.complete`). This is useful
+    /// for cleanup or notification when audio playback ends.
+    ///
+    /// - Parameter callback: The function to call when the stream finishes,
+    ///                      or nil to remove the callback
+    /// - Throws: ``PortAudioError`` if the callback cannot be set
+    /// - Note: This is only supported for callback-based streams
+    public func setStreamFinishedCallback(_ callback: (() -> Void)?) throws {
+        guard let stream = stream else {
+            throw PortAudioError.badStreamPtr
+        }
+        
+        guard let wrapper = callbackWrapper else {
+            throw PortAudioError.canNotWriteToACallbackStream
+        }
+        
+        wrapper.finishedCallback = callback
+        
+        // Bridge to C callback
+        let error = Pa_SetStreamFinishedCallback(stream, callback != nil ? paStreamFinishedCallback : nil)
+        
         if let paError = PortAudioError.from(error) {
             throw paError
         }

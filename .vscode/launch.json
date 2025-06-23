@@ -53,6 +53,24 @@
             "name": "Release SineWavePlayer",
             "program": "${workspaceFolder:portaudio}/.build/release/SineWavePlayer",
             "preLaunchTask": "swift: Build Release SineWavePlayer"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:portaudio}",
+            "name": "Debug CallbackExample",
+            "program": "${workspaceFolder:portaudio}/.build/debug/CallbackExample",
+            "preLaunchTask": "swift: Build Debug CallbackExample"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:portaudio}",
+            "name": "Release CallbackExample",
+            "program": "${workspaceFolder:portaudio}/.build/release/CallbackExample",
+            "preLaunchTask": "swift: Build Release CallbackExample"
         }
     ]
 }

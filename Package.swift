@@ -71,6 +71,9 @@ let package = Package(
         .executable(
             name: "SineWavePlayer",
             targets: ["SineWavePlayer"]),
+        .executable(
+            name: "CallbackExample",
+            targets: ["CallbackExample"]),
     ],
     targets: [
         .target(
@@ -102,6 +105,11 @@ let package = Package(
             name: "SineWavePlayer",
             dependencies: ["PortAudio"],
             path: "Examples/SineWavePlayer"
+        ),
+        .executableTarget(
+            name: "CallbackExample",
+            dependencies: ["PortAudio"],
+            path: "Examples/CallbackExample"
         ),
     ]
 )

@@ -110,6 +110,18 @@ public enum PortAudioError: Error, LocalizedError, Equatable {
         default: return .unknownError(paError)
         }
     }
+    
+    /// Gets the PortAudio error text for a given error code.
+    ///
+    /// This provides the error description from PortAudio's C library,
+    /// which may differ from the Swift error descriptions.
+    ///
+    /// - Parameter errorCode: The PortAudio error code
+    /// - Returns: The error text from PortAudio, or nil for paNoError
+    public static func getErrorText(for errorCode: PaError) -> String? {
+        guard errorCode != paNoError.rawValue else { return nil }
+        return String(cString: Pa_GetErrorText(errorCode))
+    }
 }
 
 /// The main interface to the PortAudio library.
@@ -175,6 +187,47 @@ public struct PortAudio {
         return String(cString: Pa_GetVersionText())
     }
     
+    /// Detailed version information about PortAudio.
+    ///
+    /// Provides structured version information including major, minor,
+    /// and subminor version numbers, along with revision information.
+    public struct VersionInfo {
+        /// Major version number
+        public let majorVersion: Int
+        /// Minor version number
+        public let minorVersion: Int
+        /// Subminor version number
+        public let subminorVersion: Int
+        /// Version control revision string
+        public let versionControlRevision: String
+        /// Human-readable version text
+        public let versionText: String
+    }
+    
+    /// Gets detailed version information about PortAudio.
+    ///
+    /// - Returns: A `VersionInfo` struct containing structured version data
+    public static var versionInfo: VersionInfo {
+        guard let info = Pa_GetVersionInfo() else {
+            // Fallback to basic version info if Pa_GetVersionInfo fails
+            return VersionInfo(
+                majorVersion: 0,
+                minorVersion: 0,
+                subminorVersion: 0,
+                versionControlRevision: "",
+                versionText: versionText
+            )
+        }
+        
+        return VersionInfo(
+            majorVersion: Int(info.pointee.versionMajor),
+            minorVersion: Int(info.pointee.versionMinor),
+            subminorVersion: Int(info.pointee.versionSubMinor),
+            versionControlRevision: String(cString: info.pointee.versionControlRevision),
+            versionText: String(cString: info.pointee.versionText)
+        )
+    }
+    
     /// The number of available audio devices.
     ///
     /// This includes both input and output devices. Use ``getDeviceInfo(at:)``
@@ -215,5 +268,18 @@ public struct PortAudio {
         
         let message = String(cString: info.pointee.errorText)
         return (code: errorCode, message: message)
+    }
+    
+    /// Sleeps for the specified number of milliseconds.
+    ///
+    /// This is a cross-platform sleep function that's useful for
+    /// timing in audio examples and tests. It uses the most
+    /// appropriate sleep mechanism for each platform.
+    ///
+    /// - Parameter milliseconds: The number of milliseconds to sleep
+    /// - Note: The actual sleep time may be slightly longer due to
+    ///         system scheduling, but will not be shorter
+    public static func sleep(milliseconds: Int) {
+        Pa_Sleep(milliseconds)
     }
 }
