@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  portaudio-test:
+    build: .
+    container_name: portaudio-swift-test
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: swift test
+    
+  portaudio-build:
+    build: .
+    container_name: portaudio-swift-build
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: swift build
+    
+  portaudio-example:
+    build: .
+    container_name: portaudio-swift-example
+    volumes:
+      - .:/app
+    working_dir: /app
+    # Run the basic usage example
+    command: swift Examples/BasicUsage.swift
+    # For audio playback in Docker, you might need:
+    # devices:
+    #   - /dev/snd:/dev/snd
+    # privileged: true
+    
+  portaudio-sine:
+    build: .
+    container_name: portaudio-swift-sine
+    volumes:
+      - .:/app
+    working_dir: /app
+    # Run the sine wave example (cross-platform)
+    command: swift Examples/SineWavePlayer.swift -f 440 -d 1 -a 0.5

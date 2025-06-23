@@ -1,0 +1,58 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:portaudio}",
+            "name": "Debug BasicUsage",
+            "program": "${workspaceFolder:portaudio}/.build/debug/BasicUsage",
+            "preLaunchTask": "swift: Build Debug BasicUsage"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:portaudio}",
+            "name": "Release BasicUsage",
+            "program": "${workspaceFolder:portaudio}/.build/release/BasicUsage",
+            "preLaunchTask": "swift: Build Release BasicUsage"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:portaudio}",
+            "name": "Debug MP3Player",
+            "program": "${workspaceFolder:portaudio}/.build/debug/MP3Player",
+            "preLaunchTask": "swift: Build Debug MP3Player"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:portaudio}",
+            "name": "Release MP3Player",
+            "program": "${workspaceFolder:portaudio}/.build/release/MP3Player",
+            "preLaunchTask": "swift: Build Release MP3Player"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:portaudio}",
+            "name": "Debug SineWavePlayer",
+            "program": "${workspaceFolder:portaudio}/.build/debug/SineWavePlayer",
+            "preLaunchTask": "swift: Build Debug SineWavePlayer"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:portaudio}",
+            "name": "Release SineWavePlayer",
+            "program": "${workspaceFolder:portaudio}/.build/release/SineWavePlayer",
+            "preLaunchTask": "swift: Build Release SineWavePlayer"
+        }
+    ]
+}

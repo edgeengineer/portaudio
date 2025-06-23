@@ -1,0 +1,4 @@
+module CPortAudio {
+    umbrella header "CPortAudio.h"
+    export *
+}
