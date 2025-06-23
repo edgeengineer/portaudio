@@ -198,4 +198,22 @@ public struct PortAudio {
         let device = Pa_GetDefaultOutputDevice()
         return device == paNoDevice ? nil : Int(device)
     }
+    
+    /// Gets information about the last host error.
+    ///
+    /// Host errors are platform-specific errors that occurred in the
+    /// host API layer. This can provide more detailed error information
+    /// than the generic PortAudio error codes.
+    ///
+    /// - Returns: A tuple containing the error code and message, or nil if no host error
+    public static var lastHostError: (code: Int, message: String)? {
+        guard let info = Pa_GetLastHostErrorInfo() else { return nil }
+        let errorCode = Int(info.pointee.errorCode)
+        
+        // Only return if there's actually an error
+        guard errorCode != 0 else { return nil }
+        
+        let message = String(cString: info.pointee.errorText)
+        return (code: errorCode, message: message)
+    }
 }

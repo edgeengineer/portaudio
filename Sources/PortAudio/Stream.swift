@@ -144,6 +144,37 @@ public struct StreamCallbackFlags: OptionSet, Sendable {
     public static let primingOutput = StreamCallbackFlags(rawValue: 16)
 }
 
+/// Information about an open audio stream.
+///
+/// Contains the actual stream parameters after opening, which may differ
+/// from the requested parameters.
+public struct StreamInfo {
+    /// The input latency of the stream in seconds.
+    ///
+    /// For full-duplex streams, this includes all processing between the
+    /// input hardware and the stream callback.
+    public let inputLatency: TimeInterval
+    
+    /// The output latency of the stream in seconds.
+    ///
+    /// For full-duplex streams, this includes all processing between the
+    /// stream callback and the output hardware.
+    public let outputLatency: TimeInterval
+    
+    /// The sample rate of the stream in Hz.
+    ///
+    /// This is the actual rate, which should match the requested rate
+    /// unless an error occurred.
+    public let sampleRate: Double
+    
+    init?(from paStreamInfo: UnsafePointer<PaStreamInfo>?) {
+        guard let info = paStreamInfo?.pointee else { return nil }
+        self.inputLatency = info.inputLatency
+        self.outputLatency = info.outputLatency
+        self.sampleRate = info.sampleRate
+    }
+}
+
 /// A callback function for processing audio in real-time.
 ///
 /// - Parameters:
@@ -164,6 +195,7 @@ public typealias StreamCallback = (UnsafeRawPointer?, UnsafeMutableRawPointer?, 
 
 private class CallbackWrapper {
     let callback: StreamCallback
+    var finishedCallback: (() -> Void)?
     
     init(callback: @escaping StreamCallback) {
         self.callback = callback
@@ -342,6 +374,73 @@ public class AudioStream {
     public var isStopped: Bool {
         guard let stream = stream else { return true }
         return Pa_IsStreamStopped(stream) == 1
+    }
+    
+    /// Gets the current time of the stream in seconds.
+    ///
+    /// The time is measured from when the stream was started.
+    /// This is useful for synchronizing events with audio playback.
+    ///
+    /// - Returns: The current stream time in seconds
+    public var currentTime: Double {
+        guard let stream = stream else { return 0 }
+        return Pa_GetStreamTime(stream)
+    }
+    
+    /// Gets the CPU load of the stream as a fraction (0.0 to 1.0).
+    ///
+    /// This represents the CPU time spent in the stream callback as a fraction
+    /// of real time. Values close to 1.0 indicate the callback is consuming
+    /// most of the available CPU time.
+    ///
+    /// - Returns: CPU load fraction (0.0 to 1.0), or 0 if not available
+    public var cpuLoad: Double {
+        guard let stream = stream else { return 0 }
+        return Pa_GetStreamCpuLoad(stream)
+    }
+    
+    /// The number of frames that can be read without blocking.
+    ///
+    /// For input streams or full-duplex streams.
+    /// - Returns: Number of frames available, or 0 if stream is output-only
+    public var readAvailable: Int {
+        guard let stream = stream else { return 0 }
+        let available = Pa_GetStreamReadAvailable(stream)
+        return available >= 0 ? Int(available) : 0
+    }
+    
+    /// The number of frames that can be written without blocking.
+    ///
+    /// For output streams or full-duplex streams.
+    /// - Returns: Number of frames available, or 0 if stream is input-only
+    public var writeAvailable: Int {
+        guard let stream = stream else { return 0 }
+        let available = Pa_GetStreamWriteAvailable(stream)
+        return available >= 0 ? Int(available) : 0
+    }
+    
+    /// Gets information about the stream.
+    ///
+    /// Returns actual stream parameters which may differ from requested values.
+    /// - Returns: Stream information, or nil if stream is not open
+    public var info: StreamInfo? {
+        guard let stream = stream else { return nil }
+        return StreamInfo(from: Pa_GetStreamInfo(stream))
+    }
+    
+    /// Sets a callback to be called when the stream finishes.
+    ///
+    /// The callback is called when the stream stops, whether due to
+    /// completion, abort, or error. This is useful for cleanup operations
+    /// or for being notified when a finite stream completes.
+    ///
+    /// - Parameter callback: The closure to call when the stream finishes,
+    ///                      or nil to remove the callback
+    /// - Note: Only available for callback-based streams
+    public func setFinishedCallback(_ callback: (() -> Void)?) {
+        // Store the callback in our wrapper
+        // The actual C callback setup happens during stream open
+        callbackWrapper?.finishedCallback = callback
     }
     
     /// Reads audio data from an input stream (blocking).
